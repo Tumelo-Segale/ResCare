@@ -1,0 +1,147 @@
+/* ===== MOBILE FIRST STYLES ===== */
+.page-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: sans-serif;
+  background-color: white;
+  width: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.page-content .heading {
+  display: flex;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  height: 80px;
+  background-color: white;
+  justify-content: center;
+  align-items: center;
+  z-index: 2;
+  border-bottom: 2px solid #2d6b91;
+}
+
+.page-content .heading img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 80px;
+  height: 60px;
+  padding: 10px;
+}
+
+.page-content .heading .title {
+  font-size: 24px;
+  color: #2d6b91;
+  margin: 0;
+  text-align: center;
+}
+
+.admin-dashboard {
+  background-color: white;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.quick-stats {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.stat-box {
+  background: #d7e8f3;
+  border: 2px solid #2d6b91;
+  border-radius: 10px;
+  padding: 8px;
+  text-align: center;
+}
+
+.stat-label {
+  display: block;
+  font-weight: bold;
+  color: black;
+  font-size: 20px;
+  margin-bottom: 10px;
+}
+
+.stat-value {
+  margin: 0;
+  font-size: 40px;
+  font-weight: bold;
+  color: #2d6b91;
+}
+
+/* ===== TABLET STYLES ===== */
+@media (min-width: 768px) {
+  .page-content {
+    padding: 120px 40px 80px;
+  }
+
+  .page-content .heading {
+    height: 100px;
+  }
+
+  .page-content .heading img {
+    width: 100px;
+    height: 80px;
+  }
+
+  .page-content .heading .title {
+    font-size: 32px;
+  }
+
+  .quick-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    max-width: 500px;
+  }
+
+  .stat-box {
+    padding: 25px;
+  }
+
+  .stat-label {
+    font-size: 20px;
+  }
+
+  .stat-value {
+    font-size: 42px;
+  }
+}
+
+/* ===== DESKTOP STYLES ===== */
+@media (min-width: 1024px) {
+  .page-content {
+    padding: 140px 60px 80px;
+  }
+
+  .page-content .heading .title {
+    font-size: 40px;
+  }
+
+  .quick-stats {
+    max-width: 600px;
+    gap: 30px;
+  }
+
+  .stat-box {
+    padding: 30px;
+  }
+
+  .stat-label {
+    font-size: 22px;
+  }
+
+  .stat-value {
+    font-size: 48px;
+  }
+}
