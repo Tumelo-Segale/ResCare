@@ -38,10 +38,10 @@ console.log("🔧 Environment:", isProduction ? "production" : "development");
 // ==================== CONFIGURATION ====================
 const config = {
   db: {
-    host: process.env.DB_HOST || "localhost",
-    user: process.env.DB_USER || "root",
-    password: process.env.DB_PASSWORD || "",
-    database: process.env.DB_NAME || "ResCareDB"
+    host: process.env.MYSQL_ADDON_HOST || "localhost",
+    user: process.env.MYSQL_ADDON_USER || "root",
+    password: process.env.MYSQL_ADDON_PASSWORD || "",
+    database: process.env.MYSQL_ADDON_DB || "ResCareDB"
   },
   jwt: {
     secret: process.env.JWT_SECRET || "rescare_development_secret_key_2024"
