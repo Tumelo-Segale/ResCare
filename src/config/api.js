@@ -4,7 +4,7 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 // Determine base URL based on environment
 const getBaseURL = () => {
   if (isDevelopment) {
-    return 'http://localhost:5000';
+    return 'https://rescare-lk82.onrender.com/';
   } else {
     // In production, use relative path (same domain)
     return window.location.origin;
