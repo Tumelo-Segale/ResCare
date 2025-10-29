@@ -74,10 +74,15 @@ if (isProduction) {
 }
 
 // CORS configuration
-app.use(cors({ 
-  origin: config.cors.origin,
-  credentials: true 
-}));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://rescare.vercel.app",
+    ],
+    credentials: true,
+  })
+);
 
 // Rate limiting
 const limiter = rateLimit({
