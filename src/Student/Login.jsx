@@ -3,15 +3,10 @@ import { NavLink, useNavigate } from "react-router-dom";
 import "./Student-Styles/Login.css";
 import Logo from "../assets/logo.png";
 import axios from "axios";
+import { API_CONFIG } from "../config/api";
 
-// Create axios instance with base URL
-const api = axios.create({
-  baseURL: "http://localhost:5000",
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-});
+// Create axios instance with environment-aware config
+const api = axios.create(API_CONFIG);
 
 export default function Login() {
   const navigate = useNavigate();
@@ -61,9 +56,9 @@ export default function Login() {
       if (err.response?.status === 401) {
         setError("Invalid email or password.");
       } else if (err.response?.status === 404) {
-        setError("Server endpoint not found. Please make sure the backend server is running on port 5000.");
+        setError("Server endpoint not found. Please make sure the backend server is running.");
       } else if (err.code === 'NETWORK_ERROR' || err.message.includes('Network Error')) {
-        setError("Cannot connect to server. Please check if the server is running on http://localhost:5000");
+        setError("Cannot connect to server. Please check if the server is running.");
       } else if (err.code === 'ERR_BAD_REQUEST') {
         setError("Invalid request. Please check your input and try again.");
       } else {
@@ -84,7 +79,7 @@ export default function Login() {
       alert(`Server is running: ${response.data.message}`);
     } catch (err) {
       console.error("Server health check failed:", err);
-      alert("Server is not responding. Please make sure the backend server is running on port 5000.\n\nRun: node server.js");
+      alert("Server is not responding. Please make sure the backend server is running.");
     }
   };
 

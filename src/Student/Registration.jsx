@@ -3,15 +3,10 @@ import { NavLink, useNavigate } from "react-router-dom";
 import "./Student-Styles/Registration.css";
 import Logo from "../assets/logo.png";
 import axios from "axios";
+import { API_CONFIG } from "../config/api";
 
-// Create axios instance with base URL
-const api = axios.create({
-  baseURL: "http://localhost:5000",
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-});
+// Create axios instance with environment-aware config
+const api = axios.create(API_CONFIG);
 
 export default function Registration() {
   const navigate = useNavigate();
@@ -94,7 +89,7 @@ export default function Registration() {
         setError("Registration successful! Please login manually.");
         navigate("/Login");
       } else if (err.code === 'NETWORK_ERROR' || err.message.includes('Network Error')) {
-        setError("Cannot connect to server. Please make sure the backend server is running on port 5000.");
+        setError("Cannot connect to server. Please make sure the backend server is running.");
       } else if (err.response?.status === 404) {
         setError("Server endpoint not found. Please check if the server is running.");
       } else {
@@ -149,6 +144,11 @@ export default function Registration() {
             <option value="Malema">Malema</option>
             <option value="Kutlwanong">Kutlwanong</option>
             <option value="Meloding">Meloding</option>
+            <option value="Leseding">Leseding</option>
+            <option value="Meropa">Meropa</option>
+            <option value="Nkandla">Nkandla</option>
+            <option value="Sinqobile">Sinqobile</option>
+            <option value="Lethabong">Lethabong</option>
           </select>
         </div>
 

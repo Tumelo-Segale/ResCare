@@ -3,15 +3,10 @@ import { NavLink, useNavigate } from "react-router-dom";
 import axios from "axios";
 import Logo from "../assets/logo.png";
 import "./Student-Styles/NewRequest.css";
+import { API_CONFIG } from "../config/api";
 
-// Create axios instance with base URL
-const api = axios.create({
-  baseURL: "http://localhost:5000",
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-});
+// Create axios instance with environment-aware config
+const api = axios.create(API_CONFIG);
 
 export default function NewRequest() {
   const navigate = useNavigate();

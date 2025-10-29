@@ -10,18 +10,30 @@ import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 import path from "path";
 import { fileURLToPath } from "url";
+import compression from "compression";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 
 // Fix for __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Load environment variables
 dotenv.config();
+
+// Set default environment if not provided
+if (!process.env.NODE_ENV) {
+  process.env.NODE_ENV = 'development';
+  console.log('🔧 No NODE_ENV set, defaulting to development');
+}
 
 // ==================== APP SETUP ====================
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
 const isProduction = process.env.NODE_ENV === 'production';
+
+console.log("🔧 Environment:", isProduction ? "production" : "development");
 
 // ==================== CONFIGURATION ====================
 const config = {
@@ -37,6 +49,9 @@ const config = {
   admin: {
     email: process.env.ADMIN_EMAIL || "admin@rescare.com",
     password: process.env.ADMIN_PASSWORD || "admin123"
+  },
+  cors: {
+    origin: process.env.FRONTEND_URL || (isProduction ? false : true)
   }
 };
 
@@ -44,23 +59,37 @@ console.log("🔧 Configuration loaded:");
 console.log("   Database:", config.db.database);
 console.log("   Host:", config.db.host);
 console.log("   Port:", PORT);
-console.log("   Environment:", isProduction ? "production" : "development");
 
 // ==================== MIDDLEWARE ====================
-// Basic security headers
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  next();
-});
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false
+}));
+
+// Compression (production only)
+if (isProduction) {
+  app.use(compression());
+  console.log("🔧 Compression enabled");
+}
 
 // CORS configuration
 app.use(cors({ 
-  origin: true, // Allow all origins in development
+  origin: config.cors.origin,
   credentials: true 
 }));
 
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: isProduction ? 100 : 1000, // Different limits for prod vs dev
+  message: { success: false, message: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(limiter);
+
+// Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -74,45 +103,6 @@ if (isProduction) {
   app.use(express.static(path.join(__dirname)));
   console.log("🔧 Development: Serving files from root directory");
 }
-
-// Basic rate limiting
-const rateLimitMap = new Map();
-app.use((req, res, next) => {
-  const ip = req.ip;
-  const now = Date.now();
-  const windowMs = 15 * 60 * 1000; // 15 minutes
-  const maxRequests = 100;
-
-  if (!rateLimitMap.has(ip)) {
-    rateLimitMap.set(ip, { count: 1, startTime: now });
-  } else {
-    const window = rateLimitMap.get(ip);
-    if (now - window.startTime > windowMs) {
-      window.count = 1;
-      window.startTime = now;
-    } else {
-      window.count++;
-    }
-
-    if (window.count > maxRequests) {
-      return res.status(429).json({ 
-        success: false, 
-        message: 'Too many requests, please try again later.' 
-      });
-    }
-  }
-
-  // Clean up old entries periodically
-  if (Math.random() < 0.01) {
-    for (const [ip, data] of rateLimitMap.entries()) {
-      if (now - data.startTime > windowMs) {
-        rateLimitMap.delete(ip);
-      }
-    }
-  }
-
-  next();
-});
 
 // ==================== DATABASE CONFIG ====================
 let db;
@@ -141,15 +131,16 @@ async function initializeDatabase() {
     });
     tempConnection.end();
 
-    // Create connection pool with simplified config
+    // Create connection pool with environment-specific config
     db = mysql.createPool({
       host: config.db.host,
       user: config.db.user,
       password: config.db.password,
       database: config.db.database,
-      connectionLimit: 10,
+      connectionLimit: isProduction ? 20 : 10,
       acquireTimeout: 60000,
       timeout: 60000,
+      reconnect: true
     });
 
     // Test connection
@@ -222,7 +213,9 @@ async function initializeDatabase() {
       await db.promise().query("INSERT INTO admin (email, password) VALUES (?, ?)", [config.admin.email, hashed]);
       console.log("🔑 Default admin account created");
       console.log("   Email:", config.admin.email);
-      console.log("   Password:", config.admin.password);
+      if (!isProduction) {
+        console.log("   Password:", config.admin.password);
+      }
     } else {
       console.log("✅ Admin account already exists");
     }
@@ -234,7 +227,7 @@ async function initializeDatabase() {
 
   } catch (err) {
     console.error("❌ Database initialization failed:", err.message);
-    console.error("❌ SQL Error details:", err.sqlMessage);
+    if (err.sqlMessage) console.error("❌ SQL Error details:", err.sqlMessage);
     process.exit(1);
   }
 }
@@ -242,28 +235,32 @@ async function initializeDatabase() {
 // ==================== SOCKET.IO SETUP ====================
 const io = new Server(server, { 
   cors: { 
-    origin: true, // Allow all origins in development
+    origin: config.cors.origin,
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
   }
 });
 
 io.on("connection", (socket) => {
-  console.log("🔌 User connected:", socket.id);
+  if (!isProduction) {
+    console.log("🔌 User connected:", socket.id);
+  }
 
   socket.on("join-admin-room", () => {
     socket.join("admin-room");
-    console.log("👨‍💼 Admin joined room");
+    if (!isProduction) console.log("👨‍💼 Admin joined room");
   });
 
   socket.on("join-student-room", (data) => {
     const room = `residence-${data.residence}-block-${data.block}`;
     socket.join(room);
-    console.log(`👨‍🎓 Student joined room: ${room}`);
+    if (!isProduction) console.log(`👨‍🎓 Student joined room: ${room}`);
   });
 
   socket.on("disconnect", () => {
-    console.log("🔌 User disconnected:", socket.id);
+    if (!isProduction) {
+      console.log("🔌 User disconnected:", socket.id);
+    }
   });
 });
 
@@ -315,6 +312,7 @@ app.get("/", (req, res) => {
     message: "ResCare Server is running!",
     timestamp: new Date().toISOString(),
     mode: isProduction ? "production" : "development",
+    version: "1.0.0",
     endpoints: [
       "GET /api/health",
       "POST /api/login", 
@@ -343,10 +341,15 @@ app.get("/api/health", async (req, res) => {
       admins: admins[0].count,
       requests: requests[0].count,
       timestamp: new Date().toISOString(),
-      version: "1.0.0"
+      version: "1.0.0",
+      environment: isProduction ? "production" : "development"
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Database connection failed" });
+    res.status(500).json({ 
+      success: false, 
+      message: "Database connection failed",
+      error: isProduction ? undefined : err.message 
+    });
   }
 });
 
@@ -384,11 +387,18 @@ app.post("/api/students/register", async (req, res) => {
       [fullName.trim(), contactNumber, email.toLowerCase(), residence.trim(), block.trim(), hashedPassword]
     );
 
-    console.log("✅ New student registered:", email);
+    if (!isProduction) {
+      console.log("✅ New student registered:", email);
+    }
+    
     res.json({ success: true, message: "Registration successful." });
   } catch (err) {
     console.error("Registration error:", err.message);
-    res.status(500).json({ success: false, message: "Server error during registration." });
+    res.status(500).json({ 
+      success: false, 
+      message: "Server error during registration.",
+      error: isProduction ? undefined : err.message
+    });
   }
 });
 
@@ -428,7 +438,9 @@ app.delete("/api/students/:id", authenticateToken, async (req, res) => {
     // Now delete the student (requests will be preserved with student info)
     await db.promise().query("DELETE FROM students WHERE id = ?", [studentId]);
 
-    console.log(`🗑️ Student account deleted: ID ${studentId} (requests preserved)`);
+    if (!isProduction) {
+      console.log(`🗑️ Student account deleted: ID ${studentId} (requests preserved)`);
+    }
     
     res.json({ 
       success: true, 
@@ -436,7 +448,11 @@ app.delete("/api/students/:id", authenticateToken, async (req, res) => {
     });
   } catch (err) {
     console.error("Error deleting student:", err.message);
-    res.status(500).json({ success: false, message: "Server error while deleting student account." });
+    res.status(500).json({ 
+      success: false, 
+      message: "Server error while deleting student account.",
+      error: isProduction ? undefined : err.message
+    });
   }
 });
 
@@ -449,7 +465,9 @@ app.post("/api/login", async (req, res) => {
   }
 
   try {
-    console.log("Login attempt for:", email);
+    if (!isProduction) {
+      console.log("Login attempt for:", email);
+    }
     
     // Check admin
     const [adminRows] = await db.promise().query("SELECT * FROM admin WHERE email = ?", [email.toLowerCase()]);
@@ -463,7 +481,10 @@ app.post("/api/login", async (req, res) => {
       }
 
       const token = jwt.sign({ id: admin.id, email: admin.email, role: "admin" }, config.jwt.secret, { expiresIn: "7d" });
-      console.log("✅ Admin login successful:", email);
+      
+      if (!isProduction) {
+        console.log("✅ Admin login successful:", email);
+      }
       
       return res.status(200).json({ 
         success: true, 
@@ -494,7 +515,9 @@ app.post("/api/login", async (req, res) => {
         block: student.block 
       };
       
-      console.log("✅ Student login successful:", email);
+      if (!isProduction) {
+        console.log("✅ Student login successful:", email);
+      }
       
       return res.status(200).json({
         success: true,
@@ -504,11 +527,18 @@ app.post("/api/login", async (req, res) => {
       });
     }
 
-    console.log("❌ Login failed: Invalid credentials for", email);
+    if (!isProduction) {
+      console.log("❌ Login failed: Invalid credentials for", email);
+    }
+    
     res.status(401).json({ success: false, message: "Invalid credentials." });
   } catch (err) {
     console.error("Login error:", err.message);
-    res.status(500).json({ success: false, message: "Server error during login." });
+    res.status(500).json({ 
+      success: false, 
+      message: "Server error during login.",
+      error: isProduction ? undefined : err.message
+    });
   }
 });
 
@@ -552,7 +582,9 @@ app.post("/api/requests", async (req, res) => {
       dateCreated: new Date(newRequest[0].dateCreated).toISOString()
     };
 
-    console.log("📝 New request created by:", formattedRequest.fullName);
+    if (!isProduction) {
+      console.log("📝 New request created by:", formattedRequest.fullName);
+    }
 
     // Broadcast new request
     broadcastToAdmins("new-request", formattedRequest);
@@ -569,7 +601,11 @@ app.post("/api/requests", async (req, res) => {
     });
   } catch (err) {
     console.error("Request creation error:", err.message);
-    res.status(500).json({ success: false, message: "Server error while creating request." });
+    res.status(500).json({ 
+      success: false, 
+      message: "Server error while creating request.",
+      error: isProduction ? undefined : err.message
+    });
   }
 });
 
@@ -598,7 +634,11 @@ app.get("/api/requests/block/:residence/:block", async (req, res) => {
     res.json({ success: true, requests: formattedRequests });
   } catch (err) {
     console.error("Error fetching requests:", err.message);
-    res.status(500).json({ success: false, message: "Server error while fetching requests." });
+    res.status(500).json({ 
+      success: false, 
+      message: "Server error while fetching requests.",
+      error: isProduction ? undefined : err.message
+    });
   }
 });
 
@@ -624,7 +664,11 @@ app.get("/api/requests", async (req, res) => {
     res.json({ success: true, requests: formattedRequests });
   } catch (err) {
     console.error("Error fetching all requests:", err.message);
-    res.status(500).json({ success: false, message: "Server error while fetching requests." });
+    res.status(500).json({ 
+      success: false, 
+      message: "Server error while fetching requests.",
+      error: isProduction ? undefined : err.message
+    });
   }
 });
 
@@ -683,7 +727,9 @@ app.put("/api/requests/:id/status", async (req, res) => {
       dateCreated: new Date(updatedRequests[0].dateCreated).toISOString()
     };
     
-    console.log(`🔄 Request ${id} status updated to: ${status}`);
+    if (!isProduction) {
+      console.log(`🔄 Request ${id} status updated to: ${status}`);
+    }
     
     // Broadcast status update
     broadcastToAdmins("request-updated", updatedRequest);
@@ -702,7 +748,8 @@ app.put("/api/requests/:id/status", async (req, res) => {
     console.error("Error updating request status:", err.message);
     res.status(500).json({ 
       success: false, 
-      message: "Server error while updating request status."
+      message: "Server error while updating request status.",
+      error: isProduction ? undefined : err.message
     });
   }
 });
@@ -718,13 +765,29 @@ if (isProduction) {
 // ==================== ERROR HANDLING ====================
 // 404 handler for unmatched routes
 app.use((req, res) => {
-  res.status(404).json({ success: false, message: 'Endpoint not found' });
+  res.status(404).json({ 
+    success: false, 
+    message: 'Endpoint not found',
+    path: req.path 
+  });
 });
 
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
-  res.status(500).json({ success: false, message: 'Internal server error' });
+  
+  if (isProduction) {
+    res.status(500).json({ 
+      success: false, 
+      message: 'Internal server error' 
+    });
+  } else {
+    res.status(500).json({ 
+      success: false, 
+      message: err.message,
+      stack: err.stack 
+    });
+  }
 });
 
 // ==================== START SERVER ====================
@@ -735,14 +798,12 @@ initializeDatabase()
       console.log(`📍 Server URL: http://localhost:${PORT}`);
       console.log(`🔌 Socket.IO: Ready for real-time updates`);
       console.log(`📊 Database: ${config.db.database}@${config.db.host}`);
-      console.log(`🔐 JWT: Using ${config.jwt.secret === "rescare_development_secret_key_2024" ? "development" : "custom"} secret`);
-      console.log(`👨‍💼 Admin: ${config.admin.email} / ${config.admin.password}`);
+      console.log(`🌐 Environment: ${isProduction ? 'production' : 'development'}`);
       
       if (isProduction) {
-        console.log(`🌐 Frontend: Serving built React app`);
+        console.log(`🔒 Security: Enhanced security enabled`);
         console.log(`💡 Access your app at: http://localhost:${PORT}`);
       } else {
-        console.log(`🌐 Frontend: Development mode`);
         console.log(`💡 Run your React app on http://localhost:5173`);
         console.log(`💡 API available at: http://localhost:${PORT}/api`);
       }

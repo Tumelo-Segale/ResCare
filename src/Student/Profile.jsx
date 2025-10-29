@@ -3,12 +3,10 @@ import './Student-Styles/Profile.css';
 import Logo from '../assets/logo.png';
 import { NavLink, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { API_CONFIG } from '../config/api';
 
-// Create axios instance with base URL
-const api = axios.create({
-  baseURL: "http://localhost:5000",
-  timeout: 10000,
-});
+// Create axios instance with environment-aware config
+const api = axios.create(API_CONFIG);
 
 export default function Profile() {
   const [studentData, setStudentData] = useState(null);
@@ -62,7 +60,7 @@ export default function Profile() {
 
   const handleLogout = () => {
     localStorage.clear();
-    window.location.href = "/";
+    navigate("/", { replace: true });
   };
 
   const confirmDelete = () => {

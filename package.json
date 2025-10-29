@@ -1,16 +1,28 @@
 {
   "name": "rescare",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "postbuild": "node build.js",
     "lint": "eslint .",
     "preview": "vite preview",
-    "start": "node server.js"
+    "start": "node server.js",
+    "start:dev": "cross-env NODE_ENV=development node server.js",
+    "start:prod": "cross-env NODE_ENV=production node server.js",
+    "pm2:start": "pm2 start server.js --name rescare",
+    "pm2:dev": "pm2 start server.js --name rescare --env development",
+    "pm2:prod": "pm2 start server.js --name rescare --env production",
+    "pm2:stop": "pm2 stop rescare",
+    "pm2:restart": "pm2 restart rescare",
+    "pm2:delete": "pm2 delete rescare",
+    "pm2:logs": "pm2 logs rescare",
+    "pm2:monitor": "pm2 monit"
   },
   "dependencies": {
+    "axios": "^1.6.2",
     "bcrypt": "^6.0.0",
     "body-parser": "^2.2.0",
     "compression": "^1.8.1",
@@ -25,18 +37,23 @@
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.9.4",
     "socket.io": "^4.8.1",
-    "socket.io-client": "^4.8.1",
-    "axios": "^1.6.2"
+    "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
     "@types/react": "^19.1.16",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.4",
+    "cross-env": "^10.1.0",
     "eslint": "^9.36.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.22",
     "globals": "^16.4.0",
+    "terser": "^5.44.0",
     "vite": "^7.1.7"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   }
 }

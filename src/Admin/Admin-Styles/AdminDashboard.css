@@ -8,6 +8,7 @@
   width: 100%;
   min-height: 100vh;
   box-sizing: border-box;
+  padding-bottom: 100px; /* Space for floating stats bar */
 }
 
 .page-content .heading {
@@ -47,43 +48,134 @@
   flex-direction: column;
   align-items: center;
   position: relative;
+  margin-top: 20px;
 }
 
-.quick-stats {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
+/* ===== RESIDENCE TABLE STYLES ===== */
+.residence-table-container {
   width: 100%;
-  max-width: 300px;
+  max-width: 400px;
+  margin-bottom: 20px;
 }
 
-.stat-box {
+.table-title {
+  width: 100%;
+  background-color: transparent;
+  font-size: 30px;
+  color: #2d6b91;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
+  text-transform: uppercase;
+  position: fixed;
+  top: 100px;
+  left: 0%;
+  right: 0%;
+}
+
+.residence-table {
+  width: 100%;
+  border-collapse: collapse;
   background: #d7e8f3;
   border: 2px solid #2d6b91;
-  border-radius: 10px;
-  padding: 8px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.table-header {
+  background-color: #2d6b91;
+  color: white;
+  padding: 12px;
   text-align: center;
-}
-
-.stat-label {
-  display: block;
   font-weight: bold;
-  color: black;
   font-size: 20px;
-  margin-bottom: 10px;
+  border: 1px solid #1a4a6b;
+  text-transform: uppercase;
 }
 
-.stat-value {
-  margin: 0;
-  font-size: 40px;
+.table-row {
+  border-bottom: 1px solid #2d6b91;
+}
+
+.table-row:last-child {
+  border-bottom: none;
+}
+
+.table-cell {
+  padding: 10px 8px;
+  text-align: center;
+  border: 1px solid #2d6b91;
+  font-size: 20px;
+}
+
+.residence-name {
   font-weight: bold;
-  color: #2d6b91;
+  color: #1a4a6b;
+}
+
+.pending-count {
+  font-weight: bold;
+  color: red;
+  font-size: 30px;
+  width: 35%;
+}
+
+.no-data {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  padding: 20px;
+}
+
+/* ===== FLOATING STATS BAR ===== */
+.floating-stats-bar {
+  position: fixed;
+  bottom: 80px;
+  background: transparent;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px 10px;
+  z-index: 3;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+  padding: 10px;
+  width: 50px;
+  height: 50px;
+  background-color: transparent;
+  border: 2px solid #2d6b91;
+  border-radius: 50%;
+  margin: 10px;
+}
+
+.stat-item#pending {
+  background-color: #fff3cd;
+  color: orange;
+  border: 1px solid orange;
+}
+
+.stat-item#completed {
+  background-color: #d4edda;
+  color: green;
+  border: 1px solid green;
+}
+
+.stat-value-bottom {
+  font-size: 30px;
+  font-weight: bold;
 }
 
 /* ===== TABLET STYLES ===== */
 @media (min-width: 768px) {
   .page-content {
-    padding: 120px 40px 80px;
+    padding: 120px 40px 100px;
   }
 
   .page-content .heading {
@@ -99,49 +191,90 @@
     font-size: 32px;
   }
 
-  .quick-stats {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
+  .admin-dashboard {
+    max-width: 600px;
+  }
+
+  .residence-table-container {
     max-width: 500px;
   }
 
-  .stat-box {
-    padding: 25px;
+  .table-title {
+    font-size: 24px;
   }
 
-  .stat-label {
-    font-size: 20px;
+  .table-header {
+    padding: 15px 12px;
+    font-size: 18px;
   }
 
-  .stat-value {
-    font-size: 42px;
+  .table-cell {
+    padding: 12px 10px;
+    font-size: 16px;
+  }
+
+  .pending-count {
+    font-size: 18px;
+  }
+
+  .floating-stats-bar {
+    padding: 20px 15px;
+  }
+
+  .stat-label-bottom {
+    font-size: 14px;
+  }
+
+  .stat-value-bottom {
+    font-size: 28px;
   }
 }
 
 /* ===== DESKTOP STYLES ===== */
 @media (min-width: 1024px) {
   .page-content {
-    padding: 140px 60px 80px;
+    padding: 140px 60px 100px;
   }
 
   .page-content .heading .title {
     font-size: 40px;
   }
 
-  .quick-stats {
+  .admin-dashboard {
+    max-width: 700px;
+  }
+
+  .residence-table-container {
     max-width: 600px;
-    gap: 30px;
   }
 
-  .stat-box {
-    padding: 30px;
+  .table-title {
+    font-size: 28px;
   }
 
-  .stat-label {
-    font-size: 22px;
+  .table-header {
+    padding: 18px 15px;
+    font-size: 20px;
   }
 
-  .stat-value {
-    font-size: 48px;
+  .table-cell {
+    padding: 15px 12px;
+    font-size: 18px;
+  }
+
+  .pending-count {
+    font-size: 20px;
+  }
+
+  .floating-stats-bar {
+    padding: 25px 20px;
+  }
+
+  .stat-label-bottom {
+    font-size: 16px;
+  }
+
+  .stat-value-bottom {
+    font-size: 32px;
   }
 }

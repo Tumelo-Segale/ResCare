@@ -4,14 +4,13 @@ import axios from "axios";
 import io from "socket.io-client";
 import "./Admin-Styles/AdminDashboard.css";
 import Logo from "../assets/logo.png";
+import { API_CONFIG, SOCKET_CONFIG } from "../config/api";
 
-// Create axios instance with base URL
-const api = axios.create({
-  baseURL: "http://localhost:5000",
-  timeout: 10000,
-});
+// Create axios instance with environment-aware config
+const api = axios.create(API_CONFIG);
 
-const socket = io("http://localhost:5000");
+// Create socket connection with environment-aware config
+const socket = io(SOCKET_CONFIG.url, SOCKET_CONFIG.options);
 
 export default function AdminDashboard() {
   const [requests, setRequests] = useState([]);
@@ -64,6 +63,7 @@ export default function AdminDashboard() {
     return () => {
       socket.off("new-request");
       socket.off("request-updated");
+      socket.disconnect();
     };
   }, []);
 
@@ -77,6 +77,20 @@ export default function AdminDashboard() {
   const approvedCount = requests.filter(r => r.status === "Approved").length;
   const completedCount = requests.filter(r => r.status === "Completed").length;
   const totalCount = requests.length;
+
+  // Calculate residence-wise pending requests
+  const residencePendingCounts = requests.reduce((acc, request) => {
+    if (request.status === "Pending") {
+      const residence = request.residence || "Unknown";
+      acc[residence] = (acc[residence] || 0) + 1;
+    }
+    return acc;
+  }, {});
+
+  // Convert to array and sort by residence name
+  const residenceData = Object.entries(residencePendingCounts)
+    .map(([residence, count]) => ({ residence, count }))
+    .sort((a, b) => a.residence.localeCompare(b.residence));
 
   return (
     <div className="page-content">
@@ -97,24 +111,43 @@ export default function AdminDashboard() {
         {loading ? (
           <div className="loading">Loading dashboard...</div>
         ) : (
-          /* ===== QUICK STATS ===== */
-          <div className="quick-stats">
-            <div className="stat-box pending">
-              <p className="stat-label">PENDING REQUESTS</p>
-              <p className="stat-value">{pendingCount}</p>
+          <>
+            {/* ===== RESIDENCE PENDING REQUESTS TABLE ===== */}
+            <div className="residence-table-container">
+              <h2 className="table-title">Residence Requests</h2>
+              {residenceData.length > 0 ? (
+                <table className="residence-table">
+                  <thead>
+                    <tr>
+                      <th className="table-header">Residence</th>
+                      <th className="table-header">Requests</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {residenceData.map((item, index) => (
+                      <tr key={index} className="table-row">
+                        <td className="table-cell residence-name">{item.residence}</td>
+                        <td className="table-cell pending-count">{item.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="no-data">No pending requests</p>
+              )}
             </div>
-
-            <div className="stat-box completed">
-              <p className="stat-label">COMPLETED REQUESTS</p>
-              <p className="stat-value">{completedCount}</p>
-            </div>
-
-            <div className="stat-box total">
-              <p className="stat-label">TOTAL REQUESTS</p>
-              <p className="stat-value">{totalCount}</p>
-            </div>
-          </div>
+          </>
         )}
+      </div>
+
+      {/* ===== FLOATING STATS BOTTOM BAR ===== */}
+      <div className="floating-stats-bar">
+        <div className="stat-item" id="completed">
+          <span className="stat-value-bottom">{completedCount}</span>
+        </div>
+        <div className="stat-item" id="pending">
+          <span className="stat-value-bottom">{pendingCount}</span>
+        </div>
       </div>
     </div>
   );

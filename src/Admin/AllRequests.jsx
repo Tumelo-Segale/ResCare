@@ -1,17 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { NavLink } from "react-router-dom";
 import axios from "axios";
 import io from "socket.io-client";
 import "./Admin-Styles/AllRequests.css";
 import Logo from "../assets/logo.png";
+import { API_CONFIG, SOCKET_CONFIG } from "../config/api";
 
-// Create axios instance with base URL
-const api = axios.create({
-  baseURL: "http://localhost:5000",
-  timeout: 10000,
-});
+// Create axios instance with environment-aware config
+const api = axios.create(API_CONFIG);
 
-const socket = io("http://localhost:5000");
+// Create socket connection with environment-aware config
+const socket = io(SOCKET_CONFIG.url, SOCKET_CONFIG.options);
 
 export default function AllRequest() {
   const [requests, setRequests] = useState([]);
@@ -34,8 +33,24 @@ export default function AllRequest() {
     return `${formattedDate} at ${formattedTime}`;
   };
 
+  // Sort requests: completed at bottom, others at top (sorted by date, newest first)
+  const sortRequests = (requestsArray) => {
+    return requestsArray.sort((a, b) => {
+      // If both are completed or both are not completed, sort by date (newest first)
+      if ((a.status.toLowerCase() === 'completed' && b.status.toLowerCase() === 'completed') ||
+          (a.status.toLowerCase() !== 'completed' && b.status.toLowerCase() !== 'completed')) {
+        return new Date(b.dateCreated) - new Date(a.dateCreated);
+      }
+      // If a is completed and b is not, b comes first
+      if (a.status.toLowerCase() === 'completed') return 1;
+      // If b is completed and a is not, a comes first
+      if (b.status.toLowerCase() === 'completed') return -1;
+      return 0;
+    });
+  };
+
   // Fetch all requests from the database
-  const fetchAllRequests = async () => {
+  const fetchAllRequests = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -43,7 +58,8 @@ export default function AllRequest() {
       const response = await api.get("/api/requests");
       
       if (response.data.success) {
-        setRequests(response.data.requests);
+        const sortedRequests = sortRequests(response.data.requests);
+        setRequests(sortedRequests);
       } else {
         setError("Failed to load requests");
       }
@@ -53,7 +69,7 @@ export default function AllRequest() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Load all requests from database on component mount
   useEffect(() => {
@@ -64,30 +80,74 @@ export default function AllRequest() {
 
     // Listen for new requests
     socket.on("new-request", (newRequest) => {
-      setRequests(prev => [newRequest, ...prev]);
+      console.log("New request received:", newRequest);
+      setRequests(prev => {
+        // Check if request already exists to avoid duplicates
+        const exists = prev.some(req => req.id === newRequest.id);
+        if (!exists) {
+          const updatedRequests = [newRequest, ...prev];
+          return sortRequests(updatedRequests);
+        }
+        return prev;
+      });
     });
 
     // Listen for request updates
     socket.on("request-updated", (updatedRequest) => {
-      setRequests(prev => 
-        prev.map(req => 
-          req.id === updatedRequest.id ? updatedRequest : req
-        )
-      );
+      console.log("Request updated:", updatedRequest);
+      setRequests(prev => {
+        const updatedRequests = prev.map(req => 
+          req.id === updatedRequest.id ? { ...req, ...updatedRequest } : req
+        );
+        return sortRequests(updatedRequests);
+      });
+    });
+
+    // Listen for request deletions
+    socket.on("request-deleted", (deletedRequestId) => {
+      console.log("Request deleted:", deletedRequestId);
+      setRequests(prev => {
+        const updatedRequests = prev.filter(req => req.id !== deletedRequestId);
+        return sortRequests(updatedRequests);
+      });
+    });
+
+    // Handle connection errors
+    socket.on("connect_error", (error) => {
+      console.error("Socket connection error:", error);
+      setError("Real-time connection failed. Updates may not be instant.");
+    });
+
+    // Handle reconnect
+    socket.on("reconnect", () => {
+      console.log("Socket reconnected, refreshing data...");
+      fetchAllRequests();
     });
 
     // Cleanup on unmount
     return () => {
       socket.off("new-request");
       socket.off("request-updated");
+      socket.off("request-deleted");
+      socket.off("connect_error");
+      socket.off("reconnect");
+      socket.disconnect();
     };
-  }, []);
+  }, [fetchAllRequests]);
 
   // Update request status in database
   const updateStatus = async (requestId, newStatus) => {
     try {
       setError("");
       
+      // Optimistically update the UI
+      setRequests(prev => {
+        const updatedRequests = prev.map(req => 
+          req.id === requestId ? { ...req, status: newStatus } : req
+        );
+        return sortRequests(updatedRequests);
+      });
+
       const response = await api.put(
         `/api/requests/${requestId}/status`,
         { status: newStatus }
@@ -95,12 +155,17 @@ export default function AllRequest() {
 
       if (response.data.success) {
         console.log(`Status updated to ${newStatus}`);
+        // The socket event will handle the final update
       } else {
         setError("Failed to update request status");
+        // Revert optimistic update on error
+        fetchAllRequests();
       }
     } catch (err) {
       console.error("Error updating request status:", err);
       setError(err.response?.data?.message || "Failed to update request status");
+      // Revert optimistic update on error
+      fetchAllRequests();
     }
   };
 
@@ -120,6 +185,7 @@ export default function AllRequest() {
 
   const handleLogout = () => {
     localStorage.clear();
+    socket.disconnect();
     window.location.href = "/";
   };
 
@@ -136,6 +202,7 @@ export default function AllRequest() {
         {error && (
           <div className="error-message">
             {error}
+            <button onClick={() => setError("")} className="dismiss-error">×</button>
           </div>
         )}
 
@@ -161,11 +228,17 @@ export default function AllRequest() {
                 {req.status !== "Completed" && (
                   <div className="all-request-action-buttons">
                     {req.status !== "Approved" && (
-                      <button className="approve-btn" onClick={() => updateStatus(req.id, "Approved")}>
+                      <button 
+                        className="approve-btn" 
+                        onClick={() => updateStatus(req.id, "Approved")}
+                      >
                         APPROVE
                       </button>
                     )}
-                    <button className="complete-btn"  onClick={() => updateStatus(req.id, "Completed")}>
+                    <button 
+                      className="complete-btn"  
+                      onClick={() => updateStatus(req.id, "Completed")}
+                    >
                       COMPLETE
                     </button>
                   </div>

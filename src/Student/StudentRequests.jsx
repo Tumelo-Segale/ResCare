@@ -4,14 +4,13 @@ import axios from "axios";
 import io from "socket.io-client";
 import "./Student-Styles/StudentRequests.css";
 import Logo from "../assets/logo.png";
+import { API_CONFIG, SOCKET_CONFIG } from "../config/api";
 
-// Create axios instance with base URL
-const api = axios.create({
-  baseURL: "http://localhost:5000",
-  timeout: 10000,
-});
+// Create axios instance with environment-aware config
+const api = axios.create(API_CONFIG);
 
-const socket = io("http://localhost:5000");
+// Create socket connection with environment-aware config
+const socket = io(SOCKET_CONFIG.url, SOCKET_CONFIG.options);
 
 export default function StudentRequests() {
   const [studentData, setStudentData] = useState(null);
@@ -79,6 +78,7 @@ export default function StudentRequests() {
     return () => {
       socket.off("new-request");
       socket.off("request-updated");
+      socket.disconnect();
     };
   }, []);
 
