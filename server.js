@@ -30,7 +30,7 @@ if (!process.env.NODE_ENV) {
 // ==================== APP SETUP ====================
 const app = express();
 const server = http.createServer(app);
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.MYSQL_ADDON_PORT || 5000;
 const isProduction = process.env.NODE_ENV === 'production';
 
 console.log("🔧 Environment:", isProduction ? "production" : "development");
