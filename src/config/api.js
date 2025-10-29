@@ -1,13 +1,13 @@
 // Environment-aware API configuration
-const isDevelopment = process.env.NODE_ENV === 'development';
+const isDevelopment = import.meta.env.MODE === 'development';
 
 // Determine base URL based on environment
 const getBaseURL = () => {
   if (isDevelopment) {
-    return 'https://rescare-lk82.onrender.com/';
+    return 'http://localhost:5000'; // Local backend
   } else {
-    // In production, use relative path (same domain)
-    return window.location.origin;
+    // Production backend on Render
+    return 'https://rescare-lk82.onrender.com';
   }
 };
 
